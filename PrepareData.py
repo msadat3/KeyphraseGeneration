@@ -13,7 +13,7 @@ def get_length_stat(lengths):
     print('Max_len=%d, Mean_len=%d, Median_len=%d, Stdv_len=%d'
           % (max(lengths), statistics.mean(lengths), statistics.median(lengths), statistics.stdev(lengths)))
 
-trainOrTest = 'train'
+trainOrTest = 'valid'
 
 dataset_names = []
 if trainOrTest == 'test':
@@ -85,8 +85,12 @@ for dataset_name in dataset_names:
                 #             print(tgts_token)
 
                 # split tgts by present/absent
+
+
+
                 src_seq = src_token
-                tgt_seqs = tgts_token
+                tgt_seqs = [x for x in tgts_token if len(x)<10]
+
 
                 present_tgt_flags, occurance_positions, _ = if_present_duplicate_phrases(src_seq, tgt_seqs)
                 present_tgts = [tgt for tgt, present in zip(tgt_seqs, present_tgt_flags) if present]
