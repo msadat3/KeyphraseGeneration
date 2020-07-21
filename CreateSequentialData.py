@@ -64,8 +64,9 @@ def create_vocab_dictionaries(vocab_location,word_to_idx_location, idx_to_word_l
 
     word_to_idx[target_start_token] = 0
     word_to_idx[target_end_token] = 1
+    #print(target_end_token, word_to_idx[target_end_token])
     word_to_idx[separator_token] = 2
-    word_to_idx[target_end_token] = 3
+    word_to_idx[present_absent_separator_token] = 3
     word_to_idx['<unk>'] = 4
     word_to_idx[pad_token] = 5
     idx = 6
@@ -74,7 +75,7 @@ def create_vocab_dictionaries(vocab_location,word_to_idx_location, idx_to_word_l
         word, freq = v
         if word not in word_to_idx.keys():
             word_to_idx[word] = idx
-        idx+=1
+            idx+=1
 
     save_data(word_to_idx,word_to_idx_location)
 
@@ -126,8 +127,6 @@ def create_padded_sequences(data_location, src_output_location, tgt_output_locat
             if len(tgt)<tgt_max_length:
                 while len(tgt) != tgt_max_length:
                     tgt.append(pad_token)
-
-
 
             X.append(src)
             y.append(tgt)

@@ -13,7 +13,7 @@ def get_length_stat(lengths):
     print('Max_len=%d, Mean_len=%d, Median_len=%d, Stdv_len=%d'
           % (max(lengths), statistics.mean(lengths), statistics.median(lengths), statistics.stdev(lengths)))
 
-trainOrTest = 'valid'
+trainOrTest = 'train'
 
 dataset_names = []
 if trainOrTest == 'test':
@@ -74,11 +74,16 @@ for dataset_name in dataset_names:
             abstract_token = replace_numbers_to_DIGIT(abstract_token, k=1)
             keywords_token = [replace_numbers_to_DIGIT(kw, k=1) for kw in keywords_token]
             #print(keywords_token)
+            if len(keywords_token)> 50:
+                print(title)
+                print(keywords_token)
             keywords_token = remove_duplicate_keyphrases(keywords_token)
-            if len(keywords_token)>0 and title not in unique_titles:
+            if len(keywords_token)<0 and title not in unique_titles:
                 unique_titles.append(title)
                 src_token = title_token + ["."] + abstract_token
                 tgts_token = keywords_token
+
+
 
                 #             print(json_dict)
                 #             print(src_token)
@@ -89,7 +94,7 @@ for dataset_name in dataset_names:
 
 
                 src_seq = src_token
-                tgt_seqs = [x for x in tgts_token if len(x)<10]
+                tgt_seqs = [x for x in tgts_token if (len(x)<10 and len(x)>0)]
 
 
                 present_tgt_flags, occurance_positions, _ = if_present_duplicate_phrases(src_seq, tgt_seqs)
