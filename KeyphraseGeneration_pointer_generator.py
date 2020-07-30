@@ -20,34 +20,52 @@ import json
 ####Load data
 from Utils import load_data
 
-base = "E:\ResearchData\Keyphrase Generation\DataForExperiments\\"
+base = "E:\ResearchData\Keyphrase Generation\DataForExperiments_pointer_generator\\"
 
-'''X_train = load_data(base+"kp20k\\kp20k_train_src_numeric.pkl")
+X_train = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
 #X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
 X_valid = load_data(base+"kp20k\\kp20k_valid_src_numeric.pkl")
 
-X_train_lengths = load_data(base+"kp20k\\kp20k_train_src_length.pkl")
+X_train_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
 #X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
 X_valid_lengths = load_data(base+"kp20k\\kp20k_valid_src_length.pkl")
 
-y_train_lengths = load_data(base+"kp20k\\kp20k_train_tgt_length.pkl")
+X_train_vocab_extended = load_data(base+"kp20k\\kp20k_test_src_numeric_extended_vocab.pkl")
+X_valid_vocab_extended = load_data(base+"kp20k\\kp20k_valid_src_numeric_extended_vocab.pkl")
+
+
+y_train_lengths = load_data(base+"kp20k\\kp20k_test_tgt_length.pkl")
 #y_test_lengths = load_data(base+"kp20k\\kp20k_test_tgt_length.pkl")
 y_valid_lengths = load_data(base+"kp20k\\kp20k_valid_tgt_length.pkl")
 
-y_train = load_data(base+"kp20k\\kp20k_train_tgt_numeric.pkl")
+y_train = load_data(base+"kp20k\\kp20k_test_tgt_numeric.pkl")
 #y_test = load_data(base+"kp20k\\kp20k_test_tgt_numeric.pkl")
-y_valid = load_data(base+"kp20k\\kp20k_valid_tgt_numeric.pkl")'''
+y_valid = load_data(base+"kp20k\\kp20k_valid_tgt_numeric.pkl")
+
+y_train_vocab_extended = load_data(base+"kp20k\\kp20k_test_tgt_numeric_extended_vocab.pkl")
+y_valid_vocab_extended = load_data(base+"kp20k\\kp20k_valid_tgt_numeric_extended_vocab.pkl")
+
+
+train_extended_vocabs = load_data(base+'kp20k\\kp20k_test_src_oov_vocab.pkl')
+valid_extended_vocabs = load_data(base+'kp20k\\kp20k_valid_src_oov_vocab.pkl')
+
 
 word_to_idx = load_data(base+"word_to_idx.pkl")
 idx_to_word = load_data(base+"idx_to_word.pkl")
 
-def create_data_loaders(X, X_length, y, y_length, batch_size, device, data_type = 'train'):
+def create_data_loaders_pointer_generator(X, X_extended_oov, X_length, y, y_extended_oov, y_length, extended_vocabs, batch_size, device, data_type = 'train'):
     X = torch.tensor(X, dtype=torch.long, device=torch.device(device))
+    X_extended_oov = torch.tensor(X_extended_oov, dtype=torch.long, device=torch.device(device))
     X_length = torch.tensor(X_length, dtype=torch.long, device=torch.device(device))
     y = torch.tensor(y, dtype=torch.long, device=torch.device(device))
+    y_extended_oov = torch.tensor(y_extended_oov, dtype=torch.long, device=torch.device(device))
     y_length = torch.tensor(y_length, dtype=torch.long, device=torch.device(device))
 
-    data = TensorDataset(X, X_length, y, y_length)
+    extended_vocabs_lengths = [len(ex_vocab) for ex_vocab in extended_vocabs]
+    extended_vocabs_lengths = torch.tensor(extended_vocabs_lengths, dtype=torch.long, device=torch.device(device))
+
+
+    data = TensorDataset(X, X_extended_oov, X_length, y, y_extended_oov, y_length, extended_vocabs_lengths)
     if data_type != 'train':
         #data = sorted(data, key=lambda x: x[3], reverse=True)#sorting by target length in descending order
     #return data
@@ -61,16 +79,17 @@ def create_data_loaders(X, X_length, y, y_length, batch_size, device, data_type 
 vocab_size = len(word_to_idx)
 embedding_size = 100
 hidden_size = 150
-batch_size = 10
+batch_size = 5
 lr = 0.001
 num_epochs = 20
 pad_idx = word_to_idx["<pad>"]
 eos_idx = word_to_idx["</s>"]
 sos_idx = word_to_idx["<s>"]
+unk_idx = word_to_idx["<unk>"]
 #max_output_length = len(y_train[0])
 max_output_length = 56
-report_every = 100
-validation_every = 10000
+report_every = 1
+validation_every = 10
 device = 'cuda'
 abc = None
 
@@ -78,7 +97,7 @@ def train_model(train_data_loader, validation_data_loader, location):
 
     #vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, max_output_length, device
 
-    model = Seq2Seq(vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, max_output_length, device)
+    model = Seq2Seq_pointer_generator(vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, unk_idx, max_output_length, device)
 
     if device == 'cuda':
         model.cuda()
@@ -93,31 +112,43 @@ def train_model(train_data_loader, validation_data_loader, location):
     for epoch in range(num_epochs):
         model.train()
         i = 0
-        for src, src_length, tgt, tgt_length in train_data_loader:
+        for src, src_extended, src_length, tgt, tgt_extended, tgt_length, extended_vocab_sizes in train_data_loader:
             optimizer.zero_grad()
+            max_vocab_in_batch = max(extended_vocab_sizes)
+            max_src_len_batch = max(src_length)
+            #print('src extended shape', src_extended.shape)
+            #print('max',max_src_len_batch)
+            src_extended = src_extended[:,0:max_src_len_batch]###avoiding paddings
+            #print('src extended shape after', src_extended.shape)
+
             #print(src_length)
-            #(self, input_seq, input_lengths, target_seq, teacher_forcing_ratio = 0.5)
-            output = model(input_seq=src, input_lengths=src_length, target_seq=tgt)
+            #(self, input_seq, input_lengths, input_seq_extended_with_oov, target_seq, batch_max_oov,teacher_forcing_ratio = 0.5,decode_style='training'):
+            #print(extended_vocab_sizes.shape)
+            output, coverage_loss = model(src, src_extended, src_length, tgt, extended_vocab_sizes)
 
             #tgt = tgt[:,1:]
             #print('out, tgt', output.shape, tgt.shape)
-            loss = criterion(output, tgt)
+            loss = criterion(output, tgt_extended) + coverage_loss
             with autograd.detect_anomaly():
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
                 optimizer.step()
             i+=1
             if (i+1)%report_every == 0:
-                print('Epoch', epoch, 'step', i, 'loss', loss.item())
+                print('Epoch', epoch, 'step', i, 'loss', loss.item(), coverage_loss.item())
             if (i+1)%validation_every == 0:
                 model.eval()
                 with torch.no_grad():
                     validation_loss = 0
                     batch_count = 0
-                    for val_src, val_src_length, val_tgt, val_tgt_length in validation_data_loader:
+                    #for val_src, val_src_length, val_tgt, val_tgt_length in validation_data_loader:
+                    for val_src, val_src_extended, val_src_length, val_tgt, val_tgt_extended, val_tgt_length, val_extended_vocab_sizes in validation_data_loader:
+                        #val_max_vocab_in_batch = max(val_extended_vocab_sizes)
+                        val_max_src_len_batch = max(val_src_length)
+                        val_src_extended = val_src_extended[:,0:val_max_src_len_batch]
                         batch_count+=1
-                        val_output = model(input_seq=val_src, input_lengths=val_src_length, target_seq=val_tgt)
-                        val_loss_batch = criterion(val_output, val_tgt)
+                        val_output, val_coverage_loss = model(val_src, val_src_extended, val_src_length, val_tgt, val_extended_vocab_sizes)
+                        val_loss_batch = criterion(val_output, val_tgt_extended)
 
                         validation_loss += val_loss_batch.item()
                         print(validation_loss)
@@ -142,13 +173,25 @@ def train_model(train_data_loader, validation_data_loader, location):
         if train_stop_flag == True:
             break
 
-def translate(decoded_seq, idx_to_word):
-    translated = [idx_to_word[idx] for idx in decoded_seq]
+
+train_data_loader = create_data_loaders_pointer_generator(X_train, X_train_vocab_extended, X_train_lengths, y_train, y_train_vocab_extended, y_train_lengths, train_extended_vocabs, batch_size, device)
+validation_data_loader = create_data_loaders_pointer_generator(X_valid, X_valid_vocab_extended, X_valid_lengths, y_valid, y_valid_vocab_extended, y_valid_lengths, valid_extended_vocabs, batch_size, device)
+#test_data_loader = create_data_loaders(X_test, X_test_lengths, y_test, y_test_lengths, 10, device, data_type = 'eval')
+
+model_location = "E:\ResearchData\Keyphrase Generation\Pointer_generator_model\Model.pt"
+
+#save_data(train_data_loader, base+'trainloader.pkl')
+#save_data(validation_data_loader, base+'validationloader.pkl')
+train_model(train_data_loader, validation_data_loader, model_location)
+
+
+def translate(decoded_seq, idx_to_word, oov_list_for_instance):
+    translated = [oov_list_for_instance[idx - vocab_size] if idx >= vocab_size else idx_to_word[idx] for idx in decoded_seq]
     return translated
-def translate_batch(decoded_batch, idx_to_word):
+def translate_batch(decoded_batch, idx_to_word, oov_list):
     translated_batch = []
     for i in range(len(decoded_batch)):
-        translated = translate(decoded_batch[i], idx_to_word)
+        translated = translate(decoded_batch[i], idx_to_word, oov_list[i])
         translated_batch.append(translated)
     return translated_batch
 def create_output_seq(translated_output):
@@ -176,9 +219,6 @@ def create_output_seq_batch(translated_batch):
 def calculate_f1_at_k_single(gold, predicted, k):
     #print(gold)
     #print(predicted)
-    #if len(predicted) > k:
-    #    print(predicted)
-    #print(len(predicted))
     num_predicted = len(predicted)
     stemmed_gold = [stem_word_list(x) for x in gold]
     predicted = predicted[0:k]
@@ -206,7 +246,7 @@ def calculate_f1_at_k_single(gold, predicted, k):
         precision_at_k = num_correct_at_k / min(k, num_predicted)
         recall = num_correct_at_k / num_target
         f1_at_k = (2 * precision_at_k * recall) / (precision_at_k + recall)
-    #print('precision_at_k, recall, f1_at_k', precision_at_k, recall, f1_at_k)
+   # print('precision_at_k, recall, f1_at_k', precision_at_k, recall, f1_at_k)
     return precision_at_k, recall, f1_at_k
 
 def calculate_f1_at_m_single(gold, predicted):
@@ -237,8 +277,9 @@ def calculate_f1_at_m_single(gold, predicted):
     return precision_at_k, recall, f1_at_k
 
 
-def generate_output_sequences(test_data_loader, model_location, output_seq_save_location, decode_style='greedy',  beam_size = 50, max_len= 56 ):
-    model = Seq2Seq(vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, max_len, device)
+def generate_output_sequences(model_location, test_data_loader, oov_list_for_all_examples, output_seq_save_location, decode_style='greedy',  beam_size = 50, max_len= 56 ):
+
+    model = Seq2Seq_pointer_generator(vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, unk_idx, max_output_length, device)
 
     if device == 'cuda':
         model.cuda()
@@ -247,14 +288,23 @@ def generate_output_sequences(test_data_loader, model_location, output_seq_save_
     output_sequences = []
     with torch.no_grad():
         batch_count = 0
-
-        for test_src, test_src_length, test_tgt, test_tgt_length in test_data_loader:
+        batch_start = 0
+        batch_end = batch_start + batch_size
+        #val_src, val_src_extended, val_src_length, val_tgt, val_tgt_extended, val_tgt_length, val_extended_vocab_sizes
+        for test_src, test_src_extended, test_src_length, test_tgt, test_tgt_extended, test_tgt_length, test_extended_vocab_sizes in test_data_loader:
             batch_count += 1
-            test_decoded = model(input_seq=test_src, input_lengths=test_src_length, target_seq=test_tgt, decode_style = decode_style)
-            translated_output = translate_batch(test_decoded, idx_to_word)
+            #model(val_src, val_src_extended, val_src_length, val_tgt, val_extended_vocab_sizes)
+            test_max_src_len_batch = max(test_src_length)
+            test_src_extended = test_src_extended[:, 0:test_max_src_len_batch]
+
+            test_decoded = model(test_src, test_src_extended, test_src_length, test_tgt, test_extended_vocab_sizes, decode_style = decode_style)
+            translated_output = translate_batch(test_decoded, idx_to_word, oov_list_for_all_examples[batch_start: batch_end])
             #print(translated_output)
             batch_out_sequence = create_output_seq_batch(translated_output)
             output_sequences += batch_out_sequence
+
+            batch_start = batch_end
+            batch_end = batch_start + batch_size
 
     save_data(output_sequences, output_seq_save_location)
     return output_sequences
@@ -332,14 +382,14 @@ def evaluate_output(tgt_gold_seq_location, output_sequences_location, K):
     print('Preicision: ', sum(precisions_at_k_present)/len(precisions_at_k_present))
     print('Recall: ', sum(recalls_at_k_present) / len(recalls_at_k_present))
     print('F1: ', sum(f1s_at_k_present) / len(f1s_at_k_present))
-    #print('\n')
+    print('\n')
 
     print('Scores at M:')
     print('Preicision: ', sum(precisions_at_m_present) / len(precisions_at_m_present))
     print('Recall: ', sum(recalls_at_m_present) / len(recalls_at_m_present))
     print('F1: ', sum(f1s_at_m_present) / len(f1s_at_m_present))
 
-    #print('\n')
+    print('\n')
     print('\n')
 
     print('Absent keyphrases:')
@@ -348,22 +398,15 @@ def evaluate_output(tgt_gold_seq_location, output_sequences_location, K):
     print('Preicision: ', sum(precisions_at_k_absent) / len(precisions_at_k_absent))
     print('Recall: ', sum(recalls_at_k_absent) / len(recalls_at_k_absent))
     print('F1: ', sum(f1s_at_k_absent) / len(f1s_at_k_absent))
-
+    print('\n')
 
     print('Scores at M:')
     print('Preicision: ', sum(precisions_at_m_absent) / len(precisions_at_m_absent))
     print('Recall: ', sum(recalls_at_m_absent) / len(recalls_at_m_absent))
     print('F1: ', sum(f1s_at_m_absent) / len(f1s_at_m_absent))
 
-#train_data_loader = create_data_loaders(X_train, X_train_lengths, y_train, y_train_lengths, batch_size, device)
-#validation_data_loader = create_data_loaders(X_valid, X_valid_lengths, y_valid, y_valid_lengths, 10, device, data_type = 'eval')
-#test_data_loader = create_data_loaders(X_test, X_test_lengths, y_test, y_test_lengths, 10, device, data_type = 'eval')
+#create_data_loaders_pointer_generator(X, X_extended_oov, X_length, y, y_extended_oov, y_length, extended_vocabs, batch_size, device, data_type = 'train')
 
-model_location = "E:\ResearchData\Keyphrase Generation\Model\Model.pt"
-
-#save_data(train_data_loader, base+'trainloader.pkl')
-#save_data(validation_data_loader, base+'validationloader.pkl')
-#train_model(train_data_loader, validation_data_loader, model_location)
 
 #generate_output_sequences(test_data_loader, location, base+'Test\\',decode_style='greedy',beam_size = 50, max_len= 56)
 
@@ -376,8 +419,8 @@ model_location = "E:\ResearchData\Keyphrase Generation\Model\Model.pt"
 #evaluate_output(tgt_gold_seq_location, output_sequences_location, K)
 
 
-dataset_names = ['inspec', 'krapivin', 'nus', 'semeval', 'duc', 'stackexchange', 'kp20k']
-#dataset_names = ['krapivin']
+#dataset_names = ['inspec', 'krapivin', 'nus', 'semeval', 'kp20k', 'duc', 'stackexchange']
+dataset_names = ['krapivin']
 #X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
 #y_test_lengths = load_data(base+"kp20k\\kp20k_test_tgt_length.pkl")
 generated_base = "E:\ResearchData\Keyphrase Generation\Generated_outputs\\"
@@ -388,15 +431,22 @@ for dataset_name in dataset_names:
     #output_json_path = os.path.join(json_base_dir, dataset_name, '%s_test_tokenized_targets_combined.json' % dataset_name)
 
     X_test = load_data(os.path.join(base, dataset_name, '%s_test_src_numeric.pkl' % dataset_name))
+    X_test_vocab_extended = load_data(os.path.join(base, dataset_name, '%s_test_src_numeric_extended_vocab.pkl' % dataset_name))
     X_test_lengths = load_data(os.path.join(base, dataset_name, '%s_test_src_length.pkl' % dataset_name))
     y_test = load_data(os.path.join(base, dataset_name, '%s_test_tgt_numeric.pkl' % dataset_name))
+    y_test_vocab_extended = load_data(os.path.join(base, dataset_name, '%s_test_tgt_numeric_extended_vocab.pkl' % dataset_name))
     y_test_lengths = load_data(os.path.join(base, dataset_name, '%s_test_tgt_numeric.pkl' % dataset_name))
+    test_extended_vocabs = load_data(os.path.join(base, dataset_name, '%s_test_src_oov_vocab.pkl' % dataset_name))
+
     generated_output_location = os.path.join(generated_base, '%s_test_generated_keyphrases.pkl' % dataset_name)
     tgt_gold_seq_location = os.path.join(test_gold_base, dataset_name, '%s_test_tokenized_targets_combined.json' % dataset_name)
 
-    test_data_loader = create_data_loaders(X_test, X_test_lengths, y_test, y_test_lengths, batch_size, device, data_type = 'eval')
 
-    generate_output_sequences(test_data_loader, model_location, generated_output_location, decode_style='greedy', beam_size=50,
+    # create_data_loaders_pointer_generator(X_train, X_train_vocab_extended, X_train_lengths, y_train, y_train_vocab_extended, y_train_lengths, train_extended_vocabs, batch_size, device)
+    test_data_loader = create_data_loaders_pointer_generator(X_test, X_test_vocab_extended, X_test_lengths, y_test, y_test_vocab_extended, y_test_lengths, test_extended_vocabs, batch_size, device, data_type='eval')
+
+    #generate_output_sequences(test_data_loader, oov_list_for_instance, output_seq_save_location, decode_style='greedy',  beam_size = 50, max_len= 56 )
+    generate_output_sequences(model_location, test_data_loader, test_extended_vocabs, generated_output_location, decode_style='beam', beam_size=50,
                               max_len=56)
 
     evaluate_output(tgt_gold_seq_location, generated_output_location, 5)

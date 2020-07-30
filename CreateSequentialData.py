@@ -97,6 +97,7 @@ def create_padded_sequences(data_location, src_output_location, tgt_output_locat
             json_dict = json.loads(json_line)
             src = json_dict['tokenized']['src']
             tgt = json_dict['tokenized']['combined_target_sequence']
+            #print('=====================================', src)
 
             X_lengths.append(len(src))
             if len(src)>src_max_length:
@@ -128,6 +129,7 @@ def create_padded_sequences(data_location, src_output_location, tgt_output_locat
                 while len(tgt) != tgt_max_length:
                     tgt.append(pad_token)
 
+            #print('==============================',src)
             X.append(src)
             y.append(tgt)
 
@@ -141,6 +143,84 @@ def create_padded_sequences(data_location, src_output_location, tgt_output_locat
     save_data(X_lengths, src_lengths_output_location)
     save_data(y_lengths, tgt_lengths_output_location)
 
+def create_numeric_sequence(input_location, output_location, word_to_idx_location):
+    text_list = load_data(input_location)
+    word_to_idx_dict = load_data(word_to_idx_location)
+
+    numberic_seq = []
+    for text in text_list:
+        temp = []
+        for word in text:
+            if word in word_to_idx_dict.keys():
+                temp.append(word_to_idx_dict[word])
+            else:
+                temp.append(word_to_idx_dict['<unk>'])
+        numberic_seq.append(temp)
+
+    save_data(numberic_seq, output_location)
+
+def create_numeric_sequence_src(input_location, output_location, extended_vocab_output_location, input_oov_location, word_to_idx_location):
+    text_list = load_data(input_location)
+    word_to_idx_dict = load_data(word_to_idx_location)
+
+    numberic_seq = []
+    numberic_seq_extended_vocab = []
+    input_oov_list = []
+    for text in text_list:
+        temp = []
+        temp_extended = []
+        input_oov = []
+        for word in text:
+            if word in word_to_idx_dict.keys():
+                temp.append(word_to_idx_dict[word])
+                temp_extended.append(word_to_idx_dict[word])
+            else:
+                temp.append(word_to_idx_dict['<unk>'])
+                if word in input_oov:
+                    temp_extended.append(len(word_to_idx)+input_oov.index(word))
+                else:
+                    input_oov.append(word)
+                    temp_extended.append(len(word_to_idx) + input_oov.index(word))
+
+        numberic_seq.append(temp)
+        numberic_seq_extended_vocab.append(temp_extended)
+        input_oov_list.append(input_oov)
+
+    save_data(numberic_seq, output_location)
+    save_data(numberic_seq_extended_vocab, extended_vocab_output_location)
+    save_data(input_oov_list, input_oov_location)
+
+def create_numeric_sequence_tgt(input_location, output_location, extended_vocab_output_location, input_oov_location, word_to_idx_location):
+    text_list = load_data(input_location)
+    word_to_idx_dict = load_data(word_to_idx_location)
+    input_oov_list = load_data(input_oov_location)
+
+    numberic_seq = []
+    numberic_seq_extended_vocab = []
+
+    i = 0
+    for text in text_list:
+        temp = []
+        temp_extended = []
+        input_oov = input_oov_list[i]
+
+        for word in text:
+            if word in word_to_idx_dict.keys():
+                temp.append(word_to_idx_dict[word])
+                temp_extended.append(word_to_idx_dict[word])
+            else:
+                temp.append(word_to_idx_dict['<unk>'])
+                if word in input_oov:
+                    temp_extended.append(len(word_to_idx)+input_oov.index(word))
+                else:
+                    temp_extended.append(word_to_idx_dict['<unk>'])
+
+        numberic_seq.append(temp)
+        numberic_seq_extended_vocab.append(temp_extended)
+        i+=1
+
+    save_data(numberic_seq, output_location)
+    save_data(numberic_seq_extended_vocab, extended_vocab_output_location)
 
 
 keyphrase_max_len = -1
@@ -170,25 +250,9 @@ for trainOrTest in trainOrTest_all:
         print(dataset_name,keyphrase_max_len, max_temp)
 
 
-def create_numeric_sequence(input_location, output_location, word_to_idx_location):
-    text_list = load_data(input_location)
-    word_to_idx_dict = load_data(word_to_idx_location)
-
-    numberic_seq = []
-    for text in text_list:
-        temp = []
-        for word in text:
-            if word in word_to_idx_dict.keys():
-                temp.append(word_to_idx_dict[word])
-            else:
-                temp.append(word_to_idx_dict['<unk>'])
-        numberic_seq.append(temp)
-
-    save_data(numberic_seq, output_location)
 
 
-
-output_base = "E:\ResearchData\Keyphrase Generation\DataForExperiments\\"
+output_base = "E:\ResearchData\Keyphrase Generation\DataForExperiments_pointer_generator\\"
 for trainOrTest in trainOrTest_all:
     if trainOrTest == 'test':
         dataset_names = ['inspec', 'krapivin', 'nus', 'semeval', 'kp20k', 'duc', 'stackexchange']
@@ -234,11 +298,11 @@ for trainOrTest in trainOrTest_all:
 #create_padded_sequences(kp_20K_train_location, "E:\ResearchData\Keyphrase Generation\DataForExperiments\\kp20k_train_src_padded.pkl", "E:\ResearchData\Keyphrase Generation\DataForExperiments\\kp20k_train_tgt_padded.pkl", 300, 10)
 #########################################################################################
 
-vocab_location = "E:\ResearchData\Keyphrase Generation\DataForExperiments\\vocab.pkl"
+vocab_location = output_base+"vocab.pkl"
 vocab = select_vocab(output_base+'kp20k\\kp20k_train_src_padded.pkl',output_base+'kp20k\\kp20k_train_tgt_padded.pkl',vocab_location)
 
-word_to_idx_location = "E:\ResearchData\Keyphrase Generation\DataForExperiments\\word_to_idx.pkl"
-idx_to_word_location = "E:\ResearchData\Keyphrase Generation\DataForExperiments\\idx_to_word.pkl"
+word_to_idx_location = output_base+"word_to_idx.pkl"
+idx_to_word_location = output_base+"idx_to_word.pkl"
 word_to_idx,idx_to_word= create_vocab_dictionaries(vocab_location,word_to_idx_location, idx_to_word_location)
 
 
@@ -258,6 +322,11 @@ for trainOrTest in trainOrTest_all:
             src_output_path = os.path.join(output_base, dataset_name, '%s_test_src_numeric.pkl' % dataset_name)
             tgt_output_path = os.path.join(output_base, dataset_name, '%s_test_tgt_numeric.pkl' % dataset_name)
 
+            src_output_extended_vocab_path = os.path.join(output_base, dataset_name, '%s_test_src_numeric_extended_vocab.pkl' % dataset_name)
+            tgt_output_extended_vocab_path = os.path.join(output_base, dataset_name, '%s_test_tgt_numeric_extended_vocab.pkl' % dataset_name)
+
+            src_oov_location = os.path.join(output_base, dataset_name, '%s_test_src_oov_vocab.pkl' % dataset_name)
+
         elif trainOrTest == 'valid':
             src_input_path = os.path.join(output_base, dataset_name, '%s_valid_src_padded.pkl' % dataset_name)
             tgt_input_path = os.path.join(output_base, dataset_name, '%s_valid_tgt_padded.pkl' % dataset_name)
@@ -265,6 +334,10 @@ for trainOrTest in trainOrTest_all:
             src_output_path = os.path.join(output_base, dataset_name, '%s_valid_src_numeric.pkl' % dataset_name)
             tgt_output_path = os.path.join(output_base, dataset_name, '%s_valid_tgt_numeric.pkl' % dataset_name)
 
+            src_output_extended_vocab_path = os.path.join(output_base, dataset_name,'%s_valid_src_numeric_extended_vocab.pkl' % dataset_name)
+            tgt_output_extended_vocab_path = os.path.join(output_base, dataset_name,'%s_valid_tgt_numeric_extended_vocab.pkl' % dataset_name)
+
+            src_oov_location = os.path.join(output_base, dataset_name, '%s_valid_src_oov_vocab.pkl' % dataset_name)
         else:
             src_input_path = os.path.join(output_base, dataset_name, '%s_train_src_padded.pkl' % dataset_name)
             tgt_input_path = os.path.join(output_base, dataset_name, '%s_train_tgt_padded.pkl' % dataset_name)
@@ -272,10 +345,18 @@ for trainOrTest in trainOrTest_all:
             src_output_path = os.path.join(output_base, dataset_name, '%s_train_src_numeric.pkl' % dataset_name)
             tgt_output_path = os.path.join(output_base, dataset_name, '%s_train_tgt_numeric.pkl' % dataset_name)
 
+            src_output_extended_vocab_path = os.path.join(output_base, dataset_name, '%s_train_src_numeric_extended_vocab.pkl' % dataset_name)
+            tgt_output_extended_vocab_path = os.path.join(output_base, dataset_name, '%s_train_tgt_numeric_extended_vocab.pkl' % dataset_name)
+
+            src_oov_location = os.path.join(output_base, dataset_name, '%s_train_src_oov_vocab.pkl' % dataset_name)
         #directory = os.path.join(output_base, dataset_name)
         #if os.path.isdir(directory) == False:
          #   os.mkdir(directory)
-        create_numeric_sequence(src_input_path, src_output_path, word_to_idx_location)
-        create_numeric_sequence(tgt_input_path, tgt_output_path, word_to_idx_location)
+        #create_numeric_sequence(src_input_path, src_output_path, word_to_idx_location)
+        #create_numeric_sequence(tgt_input_path, tgt_output_path, word_to_idx_location)
+        create_numeric_sequence_src(src_input_path, src_output_path,src_output_extended_vocab_path, src_oov_location, word_to_idx_location)
+        create_numeric_sequence_tgt(tgt_input_path, tgt_output_path, tgt_output_extended_vocab_path, src_oov_location, word_to_idx_location)
+
+        #create_numeric_sequence_src(input_location, output_location, extended_vocab_output_location, input_oov_location, word_to_idx_location)
 
 
