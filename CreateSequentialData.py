@@ -3,12 +3,18 @@ from Utils import *
 import os
 from nltk.probability import FreqDist
 
-target_start_token = "<s>"
+'''target_start_token = "<s>"
 target_end_token = "</s>"
 separator_token = "<sep>"
 present_absent_separator_token = "<eofpr>"
-pad_token = "<pad>"
+pad_token = "<pad>"'''
 
+
+target_start_token = ""
+target_end_token = ""
+separator_token = ";"
+present_absent_separator_token = "."
+pad_token = "<pad>"
 
 
 present_max = 8
@@ -43,6 +49,8 @@ def create_combined_target_sequence(json_location, output_location, present_max,
             json_dict['tokenized']['combined_target_sequence'] = combined
             output_json.write(json.dumps(json_dict) + '\n')
     return max_length
+
+
 
 def select_vocab(training_src_location,training_tgt_location, output_location):
     all_words = []

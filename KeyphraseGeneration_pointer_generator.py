@@ -21,48 +21,58 @@ import json
 from Utils import load_data
 
 base = "E:\ResearchData\Keyphrase Generation\DataForExperiments_pointer_generator\\"
+#base = "/home/ubuntu/Keyphrase_Generation/DataForExperiments_pointer_generator/"
 
-X_train = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
+'''model_location = "/home/ubuntu/Keyphrase_Generation/Pointer_generator_model/Model.pt"
+generated_base = "/home/ubuntu/Keyphrase_Generation/Generated_outputs/"
+test_gold_base = '/home/ubuntu/Keyphrase_Generation/data/json/'''
+
+model_location = "E:\ResearchData\Keyphrase Generation\Pointer_generator_model_v2\Model.pt"
+generated_base = "E:\ResearchData\Keyphrase Generation\Generated_outputs\\"
+test_gold_base = 'E:\ResearchData\Keyphrase Generation\data\\json\\'
+
+
+X_train = load_data(os.path.join(base,"kp20k","kp20k_train_src_numeric.pkl"))
 #X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
-X_valid = load_data(base+"kp20k\\kp20k_valid_src_numeric.pkl")
+X_valid = load_data(os.path.join(base,"kp20k","kp20k_valid_src_numeric.pkl"))
 
-X_train_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
+X_train_lengths = load_data(os.path.join(base,"kp20k","kp20k_train_src_length.pkl"))
 #X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
-X_valid_lengths = load_data(base+"kp20k\\kp20k_valid_src_length.pkl")
+X_valid_lengths = load_data(os.path.join(base,"kp20k","kp20k_valid_src_length.pkl"))
 
-X_train_vocab_extended = load_data(base+"kp20k\\kp20k_test_src_numeric_extended_vocab.pkl")
-X_valid_vocab_extended = load_data(base+"kp20k\\kp20k_valid_src_numeric_extended_vocab.pkl")
+X_train_vocab_extended = load_data(os.path.join(base, "kp20k", "kp20k_train_src_numeric_extended_vocab.pkl"))
+X_valid_vocab_extended = load_data(os.path.join(base, "kp20k", "kp20k_valid_src_numeric_extended_vocab.pkl"))
 
 
-y_train_lengths = load_data(base+"kp20k\\kp20k_test_tgt_length.pkl")
+y_train_lengths = load_data(os.path.join(base, "kp20k","kp20k_train_tgt_length.pkl"))
 #y_test_lengths = load_data(base+"kp20k\\kp20k_test_tgt_length.pkl")
-y_valid_lengths = load_data(base+"kp20k\\kp20k_valid_tgt_length.pkl")
+y_valid_lengths = load_data(os.path.join(base, "kp20k","kp20k_valid_tgt_length.pkl"))
 
-y_train = load_data(base+"kp20k\\kp20k_test_tgt_numeric.pkl")
+y_train = load_data(os.path.join(base, "kp20k", "kp20k_train_tgt_numeric.pkl"))
 #y_test = load_data(base+"kp20k\\kp20k_test_tgt_numeric.pkl")
-y_valid = load_data(base+"kp20k\\kp20k_valid_tgt_numeric.pkl")
+y_valid = load_data(os.path.join(base, "kp20k", "kp20k_valid_tgt_numeric.pkl"))
 
-y_train_vocab_extended = load_data(base+"kp20k\\kp20k_test_tgt_numeric_extended_vocab.pkl")
-y_valid_vocab_extended = load_data(base+"kp20k\\kp20k_valid_tgt_numeric_extended_vocab.pkl")
-
-
-train_extended_vocabs = load_data(base+'kp20k\\kp20k_test_src_oov_vocab.pkl')
-valid_extended_vocabs = load_data(base+'kp20k\\kp20k_valid_src_oov_vocab.pkl')
+y_train_vocab_extended = load_data(os.path.join(base, "kp20k", "kp20k_train_tgt_numeric_extended_vocab.pkl"))
+y_valid_vocab_extended = load_data(os.path.join(base, "kp20k", "kp20k_valid_tgt_numeric_extended_vocab.pkl"))
 
 
-word_to_idx = load_data(base+"word_to_idx.pkl")
-idx_to_word = load_data(base+"idx_to_word.pkl")
+train_extended_vocabs = load_data(os.path.join(base,'kp20k','kp20k_train_src_oov_vocab.pkl'))
+valid_extended_vocabs = load_data(os.path.join(base,'kp20k','kp20k_valid_src_oov_vocab.pkl'))
+
+
+word_to_idx = load_data(os.path.join(base,"word_to_idx.pkl"))
+idx_to_word = load_data(os.path.join(base,"idx_to_word.pkl"))
 
 def create_data_loaders_pointer_generator(X, X_extended_oov, X_length, y, y_extended_oov, y_length, extended_vocabs, batch_size, device, data_type = 'train'):
-    X = torch.tensor(X, dtype=torch.long, device=torch.device(device))
-    X_extended_oov = torch.tensor(X_extended_oov, dtype=torch.long, device=torch.device(device))
-    X_length = torch.tensor(X_length, dtype=torch.long, device=torch.device(device))
-    y = torch.tensor(y, dtype=torch.long, device=torch.device(device))
-    y_extended_oov = torch.tensor(y_extended_oov, dtype=torch.long, device=torch.device(device))
-    y_length = torch.tensor(y_length, dtype=torch.long, device=torch.device(device))
+    X = torch.tensor(X, dtype=torch.long)
+    X_extended_oov = torch.tensor(X_extended_oov, dtype=torch.long)
+    X_length = torch.tensor(X_length, dtype=torch.long)
+    y = torch.tensor(y, dtype=torch.long)
+    y_extended_oov = torch.tensor(y_extended_oov, dtype=torch.long)
+    y_length = torch.tensor(y_length, dtype=torch.long)
 
     extended_vocabs_lengths = [len(ex_vocab) for ex_vocab in extended_vocabs]
-    extended_vocabs_lengths = torch.tensor(extended_vocabs_lengths, dtype=torch.long, device=torch.device(device))
+    extended_vocabs_lengths = torch.tensor(extended_vocabs_lengths, dtype=torch.long)
 
 
     data = TensorDataset(X, X_extended_oov, X_length, y, y_extended_oov, y_length, extended_vocabs_lengths)
@@ -79,7 +89,7 @@ def create_data_loaders_pointer_generator(X, X_extended_oov, X_length, y, y_exte
 vocab_size = len(word_to_idx)
 embedding_size = 100
 hidden_size = 150
-batch_size = 5
+batch_size = 10
 lr = 0.001
 num_epochs = 20
 pad_idx = word_to_idx["<pad>"]
@@ -88,16 +98,16 @@ sos_idx = word_to_idx["<s>"]
 unk_idx = word_to_idx["<unk>"]
 #max_output_length = len(y_train[0])
 max_output_length = 56
-report_every = 1
-validation_every = 10
+report_every = 100
+validation_every = 10000
 device = 'cuda'
 abc = None
 
-def train_model(train_data_loader, validation_data_loader, location):
+def train_model(train_data_loader, validation_data_loader, location, coverage_enabled = False):
 
     #vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, max_output_length, device
 
-    model = Seq2Seq_pointer_generator(vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, unk_idx, max_output_length, device)
+    model = Seq2Seq_pointer_generator(vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, unk_idx, max_output_length, device, coverage_enabled= coverage_enabled)
 
     if device == 'cuda':
         model.cuda()
@@ -105,7 +115,7 @@ def train_model(train_data_loader, validation_data_loader, location):
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.NLLLoss(ignore_index = pad_idx)
 
-    prev_validation_perplexity = 99999999999999.0
+    prev_validation_perplexity = 999999999999999999999.0
     patience = 5
     not_improving_checkpoints = 0
     train_stop_flag = False
@@ -124,19 +134,28 @@ def train_model(train_data_loader, validation_data_loader, location):
             #print(src_length)
             #(self, input_seq, input_lengths, input_seq_extended_with_oov, target_seq, batch_max_oov,teacher_forcing_ratio = 0.5,decode_style='training'):
             #print(extended_vocab_sizes.shape)
-            output, coverage_loss = model(src, src_extended, src_length, tgt, extended_vocab_sizes)
+            if coverage_enabled:
+                output, coverage_loss = model(src.to(torch.device(device)), src_extended.to(torch.device(device)), src_length.to(torch.device(device)), tgt.to(torch.device(device)), extended_vocab_sizes.to(torch.device(device)))
+                loss = criterion(output[:,:,1:].to(torch.device(device)), tgt_extended[:,1:].to(torch.device(device))) + coverage_loss
+            else:
+                #print('no coverage')
+                output = model(src.to(torch.device(device)), src_extended.to(torch.device(device)), src_length.to(torch.device(device)), tgt.to(torch.device(device)), extended_vocab_sizes.to(torch.device(device)))
+                loss = criterion(output[:,:,1:].to(torch.device(device)), tgt_extended[:,1:].to(torch.device(device)))
 
             #tgt = tgt[:,1:]
-            #print('out, tgt', output.shape, tgt.shape)
-            loss = criterion(output, tgt_extended) + coverage_loss
+            #print('out, tgt', output[:,:,1:].shape, tgt_extended[:,1:].shape)
+
             with autograd.detect_anomaly():
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
                 optimizer.step()
-            i+=1
+
             if (i+1)%report_every == 0:
-                print('Epoch', epoch, 'step', i, 'loss', loss.item(), coverage_loss.item())
-            if (i+1)%validation_every == 0:
+                if coverage_enabled:
+                    print('Epoch', epoch, 'step', i, 'loss', loss.item(), coverage_loss.item())
+                else:
+                    print('Epoch', epoch, 'step', i, 'loss', loss.item())
+            if (i+1)%validation_every == 0 or (i+1) == len(train_data_loader):
                 model.eval()
                 with torch.no_grad():
                     validation_loss = 0
@@ -147,11 +166,16 @@ def train_model(train_data_loader, validation_data_loader, location):
                         val_max_src_len_batch = max(val_src_length)
                         val_src_extended = val_src_extended[:,0:val_max_src_len_batch]
                         batch_count+=1
-                        val_output, val_coverage_loss = model(val_src, val_src_extended, val_src_length, val_tgt, val_extended_vocab_sizes)
-                        val_loss_batch = criterion(val_output, val_tgt_extended)
+                        if coverage_enabled:
+                            val_output, val_coverage_loss = model(val_src.to(torch.device(device)), val_src_extended.to(torch.device(device)), val_src_length.to(torch.device(device)), val_tgt.to(torch.device(device)), val_extended_vocab_sizes.to(torch.device(device)))
+                        else:
+                            val_output = model(val_src.to(torch.device(device)), val_src_extended.to(torch.device(device)), val_src_length.to(torch.device(device)), val_tgt.to(torch.device(device)),
+                                                                  val_extended_vocab_sizes.to(torch.device(device)))
+
+                        val_loss_batch = criterion(val_output[:,:,1:].to(torch.device(device)), val_tgt_extended[:,1:].to(torch.device(device)))
 
                         validation_loss += val_loss_batch.item()
-                        print(validation_loss)
+                        #print(validation_loss)
                     validation_perplexity = math.exp(validation_loss/batch_count)
                     print('perp', validation_perplexity)
                     if validation_perplexity < prev_validation_perplexity:
@@ -160,8 +184,12 @@ def train_model(train_data_loader, validation_data_loader, location):
                         prev_validation_perplexity = validation_perplexity
                         not_improving_checkpoints = 0
                     else:
-                        print("Validation perplexity did not improve.")
+                        print("Validation perplexity did not improve. reducing lr")
+                        optimizer = optim.Adam(model.parameters(), lr=lr/2)
+                        for param_group in optimizer.param_groups:
+                            print(param_group['lr'])
                         not_improving_checkpoints+=1
+
                     #return abc
                     #print(abc)
                 model.train()
@@ -170,6 +198,7 @@ def train_model(train_data_loader, validation_data_loader, location):
                 print("Not improving for ", patience, " checkpoints. Sopping training.")
                 train_stop_flag = True
                 break
+            i += 1
         if train_stop_flag == True:
             break
 
@@ -178,7 +207,8 @@ train_data_loader = create_data_loaders_pointer_generator(X_train, X_train_vocab
 validation_data_loader = create_data_loaders_pointer_generator(X_valid, X_valid_vocab_extended, X_valid_lengths, y_valid, y_valid_vocab_extended, y_valid_lengths, valid_extended_vocabs, batch_size, device)
 #test_data_loader = create_data_loaders(X_test, X_test_lengths, y_test, y_test_lengths, 10, device, data_type = 'eval')
 
-model_location = "E:\ResearchData\Keyphrase Generation\Pointer_generator_model\Model.pt"
+
+
 
 #save_data(train_data_loader, base+'trainloader.pkl')
 #save_data(validation_data_loader, base+'validationloader.pkl')
@@ -277,9 +307,9 @@ def calculate_f1_at_m_single(gold, predicted):
     return precision_at_k, recall, f1_at_k
 
 
-def generate_output_sequences(model_location, test_data_loader, oov_list_for_all_examples, output_seq_save_location, decode_style='greedy',  beam_size = 50, max_len= 56 ):
+def generate_output_sequences(model_location, test_data_loader, oov_list_for_all_examples, output_seq_save_location, decode_style='greedy',  beam_size = 50, max_len= 56, coverage_enabled= False ):
 
-    model = Seq2Seq_pointer_generator(vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, unk_idx, max_output_length, device)
+    model = Seq2Seq_pointer_generator(vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, unk_idx, max_output_length, device, coverage_enabled= coverage_enabled)
 
     if device == 'cuda':
         model.cuda()
@@ -297,10 +327,13 @@ def generate_output_sequences(model_location, test_data_loader, oov_list_for_all
             test_max_src_len_batch = max(test_src_length)
             test_src_extended = test_src_extended[:, 0:test_max_src_len_batch]
 
-            test_decoded = model(test_src, test_src_extended, test_src_length, test_tgt, test_extended_vocab_sizes, decode_style = decode_style)
+            test_decoded = model(test_src.to(torch.device(device)), test_src_extended.to(torch.device(device)), test_src_length.to(torch.device(device)), test_tgt.to(torch.device(device)), test_extended_vocab_sizes.to(torch.device(device)), decode_style = decode_style)
+            #print('decoded',test_decoded)
             translated_output = translate_batch(test_decoded, idx_to_word, oov_list_for_all_examples[batch_start: batch_end])
+            #print('translated_output', translated_output)
             #print(translated_output)
             batch_out_sequence = create_output_seq_batch(translated_output)
+            #print(batch_out_sequence)
             output_sequences += batch_out_sequence
 
             batch_start = batch_end
@@ -311,6 +344,7 @@ def generate_output_sequences(model_location, test_data_loader, oov_list_for_all
 
 
 def evaluate_output(tgt_gold_seq_location, output_sequences_location, K):
+
     output_sequences = load_data(output_sequences_location)
     #print(output_sequences)
 
@@ -333,23 +367,34 @@ def evaluate_output(tgt_gold_seq_location, output_sequences_location, K):
     i = 0
     with open(tgt_gold_seq_location, 'r', encoding="utf8", ) as input_json:
         for json_line in input_json:
+            #print("=============================================")
             json_dict = json.loads(json_line)
             src = json_dict['tokenized']['src']
             gold_tgt = json_dict['tokenized']['combined_target_sequence']
-
+            #print('gold seq',gold_tgt)
             gold_tgt = create_output_seq(gold_tgt)
+            #print('gold list',gold_tgt)
             predicted_tgt = output_sequences[i]
 
             present_tgt_flags, occurance_positions, _ = if_present_duplicate_phrases(src, gold_tgt)
             present_tgts = [tgt for tgt, present in zip(gold_tgt, present_tgt_flags) if present]
             absent_tgts = [tgt for tgt, present in zip(gold_tgt, present_tgt_flags) if ~present]
 
-            present_pred_flags, occurance_positions, _ = if_present_duplicate_phrases(src, gold_tgt)
-            present_pred = [tgt for tgt, present in zip(predicted_tgt, present_tgt_flags) if present]
-            absent_pred = [tgt for tgt, present in zip(predicted_tgt, present_tgt_flags) if ~present]
+            #print('present gold', len(present_tgts))
+            #print('absent gold', len(absent_tgts))
 
-            #print('present pred', present_pred)
-            #print('present tgt', present_tgts)
+
+            #print('predicted list',predicted_tgt)
+
+            present_pred_flags, occurance_positions, _ = if_present_duplicate_phrases(src, predicted_tgt)
+            present_pred = [tgt for tgt, present in zip(predicted_tgt, present_pred_flags) if present]
+            absent_pred = [tgt for tgt, present in zip(predicted_tgt, present_pred_flags) if ~present]
+            #print('present pred', len(present_pred))
+            #print('absent pred', len(absent_pred))
+
+
+            #print('present pred', len(present_pred))
+            #print('present tgt', len(present_tgts))
             precision_at_k, recall_at_k, f1_at_k = calculate_f1_at_k_single(present_tgts, present_pred, K)
 
             precisions_at_k_present.append(precision_at_k)
@@ -423,8 +468,7 @@ def evaluate_output(tgt_gold_seq_location, output_sequences_location, K):
 dataset_names = ['krapivin']
 #X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
 #y_test_lengths = load_data(base+"kp20k\\kp20k_test_tgt_length.pkl")
-generated_base = "E:\ResearchData\Keyphrase Generation\Generated_outputs\\"
-test_gold_base = 'E:\ResearchData\Keyphrase Generation\data\json\\'
+
 for dataset_name in dataset_names:
     print('======================dataset name===================', dataset_name)
     #input_json_path = os.path.join(json_base_dir, dataset_name, '%s_test_tokenized.json' % dataset_name)

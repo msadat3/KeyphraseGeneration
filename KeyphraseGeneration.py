@@ -22,7 +22,7 @@ from Utils import load_data
 
 base = "E:\ResearchData\Keyphrase Generation\DataForExperiments\\"
 
-'''X_train = load_data(base+"kp20k\\kp20k_train_src_numeric.pkl")
+X_train = load_data(base+"kp20k\\kp20k_train_src_numeric.pkl")
 #X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
 X_valid = load_data(base+"kp20k\\kp20k_valid_src_numeric.pkl")
 
@@ -36,7 +36,7 @@ y_valid_lengths = load_data(base+"kp20k\\kp20k_valid_tgt_length.pkl")
 
 y_train = load_data(base+"kp20k\\kp20k_train_tgt_numeric.pkl")
 #y_test = load_data(base+"kp20k\\kp20k_test_tgt_numeric.pkl")
-y_valid = load_data(base+"kp20k\\kp20k_valid_tgt_numeric.pkl")'''
+y_valid = load_data(base+"kp20k\\kp20k_valid_tgt_numeric.pkl")
 
 word_to_idx = load_data(base+"word_to_idx.pkl")
 idx_to_word = load_data(base+"idx_to_word.pkl")
@@ -100,7 +100,7 @@ def train_model(train_data_loader, validation_data_loader, location):
             output = model(input_seq=src, input_lengths=src_length, target_seq=tgt)
 
             #tgt = tgt[:,1:]
-            #print('out, tgt', output.shape, tgt.shape)
+            print('out, tgt', output.shape, tgt.shape)
             loss = criterion(output, tgt)
             with autograd.detect_anomaly():
                 loss.backward()
@@ -355,15 +355,15 @@ def evaluate_output(tgt_gold_seq_location, output_sequences_location, K):
     print('Recall: ', sum(recalls_at_m_absent) / len(recalls_at_m_absent))
     print('F1: ', sum(f1s_at_m_absent) / len(f1s_at_m_absent))
 
-#train_data_loader = create_data_loaders(X_train, X_train_lengths, y_train, y_train_lengths, batch_size, device)
-#validation_data_loader = create_data_loaders(X_valid, X_valid_lengths, y_valid, y_valid_lengths, 10, device, data_type = 'eval')
+train_data_loader = create_data_loaders(X_train, X_train_lengths, y_train, y_train_lengths, batch_size, device)
+validation_data_loader = create_data_loaders(X_valid, X_valid_lengths, y_valid, y_valid_lengths, 10, device, data_type = 'eval')
 #test_data_loader = create_data_loaders(X_test, X_test_lengths, y_test, y_test_lengths, 10, device, data_type = 'eval')
 
 model_location = "E:\ResearchData\Keyphrase Generation\Model\Model.pt"
 
 #save_data(train_data_loader, base+'trainloader.pkl')
 #save_data(validation_data_loader, base+'validationloader.pkl')
-#train_model(train_data_loader, validation_data_loader, model_location)
+train_model(train_data_loader, validation_data_loader, model_location)
 
 #generate_output_sequences(test_data_loader, location, base+'Test\\',decode_style='greedy',beam_size = 50, max_len= 56)
 

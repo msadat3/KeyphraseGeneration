@@ -13,7 +13,7 @@ def get_length_stat(lengths):
     print('Max_len=%d, Mean_len=%d, Median_len=%d, Stdv_len=%d'
           % (max(lengths), statistics.mean(lengths), statistics.median(lengths), statistics.stdev(lengths)))
 
-trainOrTest = 'valid'
+trainOrTest = 'train_aug'
 
 dataset_names = []
 if trainOrTest == 'test':
@@ -35,17 +35,23 @@ for dataset_name in dataset_names:
     elif trainOrTest == 'valid':
         input_json_path = os.path.join(json_base_dir, dataset_name, '%s_valid.json' % dataset_name)
         output_json_path = os.path.join(json_base_dir, dataset_name, '%s_valid_tokenized.json' % dataset_name)
-    else:
+    elif trainOrTest == 'train':
         input_json_path = os.path.join(json_base_dir, dataset_name, '%s_train.json' % dataset_name)
         output_json_path = os.path.join(json_base_dir, dataset_name, '%s_train_tokenized.json' % dataset_name)
+    else:
+        input_json_path = os.path.join(json_base_dir, dataset_name, '%s_train_augmented.json' % dataset_name)
+        output_json_path = os.path.join(json_base_dir, dataset_name, '%s_train_augmented_tokenized.json' % dataset_name)
 
     doc_count, present_doc_count, absent_doc_count = 0, 0, 0
     tgt_num, present_tgt_num, absent_tgt_num = [], [], []
 
     unique_titles = []
+    count = 0
     with open(input_json_path, 'r', encoding="utf8", ) as input_json, open(output_json_path, 'w') as output_json:
         for json_line in input_json:
             json_dict = json.loads(json_line)
+            count+=1
+            print(count)
 
             if dataset_name == 'stackexchange':
                 json_dict['abstract'] = json_dict['question']

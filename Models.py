@@ -8,8 +8,14 @@ import torch
 from queue import PriorityQueue
 import operator
 from Utils import *
+import os
 
-word_2_idx = load_data("E:\ResearchData\Keyphrase Generation\DataForExperiments\\word_to_idx.pkl")
+#base = "/home/ubuntu/Keyphrase_Generation/DataForExperiments_pointer_generator/"
+
+base = "E:\ResearchData\Keyphrase Generation\DataForExperiments_pointer_generator\\"
+
+
+word_2_idx = load_data(os.path.join(base,"word_to_idx.pkl"))
 class GRU_Encoder(nn.Module):
     def __init__(self, embedding, embedding_size, hidden_size):
         super(GRU_Encoder, self).__init__()
@@ -84,14 +90,14 @@ class GRU_Decoder(nn.Module):
 
 
 class GRU_Decoder_pointer_generator(nn.Module):
-    def __init__(self, embedding, vocab_size, embedding_size, hidden_size, device):
+    def __init__(self, embedding, vocab_size, embedding_size, hidden_size, device, coverage_enabled = False):
         super(GRU_Decoder_pointer_generator, self).__init__()
         #self.embedding_size = embedding_size
         self.embedding = embedding
 
         self.GRU = nn.GRU(embedding_size+(2*hidden_size), hidden_size, bidirectional=False)
 
-        self.attention = BahdanauAttention(hidden_size, coverage_enabled= True)
+        self.attention = BahdanauAttention(hidden_size, coverage_enabled= coverage_enabled)
 
         self.linear = nn.Linear(embedding_size+(3*hidden_size), hidden_size)
 
@@ -102,7 +108,7 @@ class GRU_Decoder_pointer_generator(nn.Module):
         self.batch_size = None
         self.device = device
 
-    def forward(self, input_token, encoder_hidden_states, projected_encoder_hidden_states, src_mask, prev_hidden, encoder_batch_extended_vocab, batch_max_oov, coverage):
+    def forward(self, input_token, encoder_hidden_states, projected_encoder_hidden_states, src_mask, prev_hidden, encoder_batch_extended_vocab, batch_max_oov, coverage = None):
         #print('decoder input shape', input_token.shape)
         self.batch_size = input_token.shape[0]
         embed = self.embedding(input_token)
@@ -110,8 +116,10 @@ class GRU_Decoder_pointer_generator(nn.Module):
         embed = torch.transpose(embed, 0, 1)
 
         #print('prev_hidden shape', prev_hidden.shape)
-        context_vector, attention_dist, coverage, min_between_attention_coverage = self.attention(query= prev_hidden, proj_key=projected_encoder_hidden_states, value=encoder_hidden_states, mask=src_mask, coverage = coverage)
-
+        if coverage != None:
+            context_vector, attention_dist, coverage, min_between_attention_coverage = self.attention(query= prev_hidden, proj_key=projected_encoder_hidden_states, value=encoder_hidden_states, mask=src_mask, coverage = coverage)
+        else:
+            context_vector, attention_dist = self.attention(query= prev_hidden, proj_key=projected_encoder_hidden_states, value=encoder_hidden_states, mask=src_mask)
         #print(attention_dist.shape, coverage.shape)
         #min_between_attention_coverage = torch.min(attention_dist, coverage)
 
@@ -128,19 +136,22 @@ class GRU_Decoder_pointer_generator(nn.Module):
        # print('concat shape', concat.shape)
         p_gen = torch.sigmoid(self.pointer_generator_switch(concat))
        # print('p_gen shape', p_gen.shape)
-
+        #print(p_gen)
         #print('concat shaoe', concat.shape)
         linear_output = self.linear(concat)
 
         out = self.output_layer(linear_output)
 
+        encoder_batch_extended_vocab = encoder_batch_extended_vocab.unsqueeze(0)
         generation_prob = F.softmax(out, dim=2)
+        #print('gen_prob 0',generation_prob[0][0][encoder_batch_extended_vocab[0][0][0]])
        # sum = torch.sum(attention_dist, dim=1)
         #print('attention_dist sum', sum)
        # print('pgrn', p_gen)
 
        # print('generation_prob shape', generation_prob.shape)
         generation_prob = p_gen * generation_prob
+       # print('gen_prob 0', generation_prob[0][0][encoder_batch_extended_vocab[0][0][0]])
         attention_dist = (1 - p_gen) * attention_dist
 
         #print('attention_dist shape', attention_dist.shape)
@@ -154,12 +165,16 @@ class GRU_Decoder_pointer_generator(nn.Module):
         generation_prob = torch.cat([generation_prob, zero_generation_probs_for_oovs], dim=2)
         generation_prob = generation_prob + 1e-12###for avoiding -inf in log space
         #print('generation_prob shape after zero added', generation_prob.shape)
-        encoder_batch_extended_vocab = encoder_batch_extended_vocab.unsqueeze(0)
+       # print('gen_prob after adding zeroes and exp',generation_prob[0][0][encoder_batch_extended_vocab[0][0][0]])
+
         #print('encoder_batch_extended_vocab shape after ', encoder_batch_extended_vocab.shape)
 
 
+        #print('attention_dist after mult',attention_dist)
+        #print('attension 0', attention_dist[0][0][0])
 
         output = generation_prob.scatter_add_(2, encoder_batch_extended_vocab, attention_dist)
+       # print('output 0', output[0][0][encoder_batch_extended_vocab[0][0][0]])
 
         #print('output', output.shape, output)
         #sum = torch.sum(output, dim=2)
@@ -169,11 +184,14 @@ class GRU_Decoder_pointer_generator(nn.Module):
         #sum = torch.sum(output, dim=2)
         #print('output sum', sum)
         #print('decoder out shaoe======================================', output.shape)
-        return output, prev_hidden, coverage, min_between_attention_coverage
+        if coverage != None:
+            return output, prev_hidden, coverage, min_between_attention_coverage
+        else:
+            return output, prev_hidden
 
 
 class Seq2Seq_pointer_generator(nn.Module):
-    def __init__(self, vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, unk_idx, max_output_length, device):
+    def __init__(self, vocab_size, embedding_size, hidden_size, pad_idx, eos_idx, sos_idx, unk_idx, max_output_length, device, coverage_enabled = False):
         super(Seq2Seq_pointer_generator, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_size)
 
@@ -182,9 +200,9 @@ class Seq2Seq_pointer_generator(nn.Module):
         self.project_encoder_states = nn.Linear(2*hidden_size, hidden_size)
         self.bridge = nn.Linear(2 * hidden_size, hidden_size, bias=True)
 
+        self.coverage_enabled = coverage_enabled
 
-
-        self.decoder = GRU_Decoder_pointer_generator(self.embedding, vocab_size, embedding_size, hidden_size, device)
+        self.decoder = GRU_Decoder_pointer_generator(self.embedding, vocab_size, embedding_size, hidden_size, device, coverage_enabled=self.coverage_enabled)
 
         self.pad_idx = pad_idx
         self.eos_idx = eos_idx
@@ -202,6 +220,7 @@ class Seq2Seq_pointer_generator(nn.Module):
 
         self.batch_size = len(input_lengths)
 
+
         encoder_hidden_states, encoder_last_hidden_state = self.encoder(input_seq, input_lengths)
 
         projected_encoder_hidden_states = self.project_encoder_states(encoder_hidden_states)##for efficiency. could be done in decoder at every step also
@@ -214,8 +233,11 @@ class Seq2Seq_pointer_generator(nn.Module):
             if target_seq == None:
                 #inference = True
                 output_tokens = torch.zeros((input_seq.shape[0], self.max_output_length)).long().fill_(self.sos_idx).to(self.device)
+            else:
+                output_tokens = target_seq
         except:
             #inference = False
+            #print('wtf')
             output_tokens = target_seq
             #print('output tokens shape',output_tokens.shape)
         #print(output_tokens)
@@ -228,14 +250,17 @@ class Seq2Seq_pointer_generator(nn.Module):
         src_mask = self.create_mask(input_seq)
         #print(src_mask)
         if decode_style == "training":
-            coverage_vectors = torch.zeros(self.max_input_length_batch, self.batch_size).to(self.device)
+            if self.coverage_enabled:
+                coverage_vectors = torch.zeros(self.max_input_length_batch, self.batch_size).to(self.device)
+                batch_coverage_loss = torch.zeros(self.batch_size).to(self.device)
             #print('traom',coverage_vectors.shape)
             decoder_input = output_tokens[:, 0]
+
             #print(extended_vocab_sizes.shape)
             batch_max_oov = max(extended_vocab_sizes)
             decoder_output_probabilities = torch.zeros(self.max_output_length, self.batch_size,
                                                        self.vocab_size + batch_max_oov).to(self.device)
-            batch_coverage_loss = torch.zeros(self.batch_size).to(self.device)
+
             for t in range(1, self.max_output_length):
                 #print(decoder_input.shape)
                 #print('decoder_input', decoder_input)
@@ -246,14 +271,18 @@ class Seq2Seq_pointer_generator(nn.Module):
                 #print('actu', decoder_input.shape)
                 #input_token, encoder_hidden_states, projected_encoder_hidden_states, src_mask, prev_hidden, encoder_batch_extended_vocab
                 #print('train',input_seq_extended_with_oov.shape)
-                output, decoder_hidden, coverage_vectors, min_between_attention_coverage = self.decoder(decoder_input, encoder_hidden_states, projected_encoder_hidden_states, src_mask, decoder_hidden, input_seq_extended_with_oov, batch_max_oov, coverage_vectors)
-
+                if self.coverage_enabled:
+                    output, decoder_hidden, coverage_vectors, min_between_attention_coverage = self.decoder(decoder_input, encoder_hidden_states, projected_encoder_hidden_states, src_mask, decoder_hidden, input_seq_extended_with_oov, batch_max_oov, coverage_vectors)
+                    batch_coverage_loss_step = torch.sum(min_between_attention_coverage, dim=1)
+                    batch_coverage_loss += batch_coverage_loss_step
+                else:
+                    output, decoder_hidden = self.decoder(decoder_input, encoder_hidden_states, projected_encoder_hidden_states, src_mask, decoder_hidden, input_seq_extended_with_oov, batch_max_oov)
                 #print(coverage_vectors)
                # print('min_between_attention_coverage', min_between_attention_coverage.shape, min_between_attention_coverage)
-                batch_coverage_loss_step = torch.sum(min_between_attention_coverage, dim=1)
+
                 #print('batch_coverage_loss_step',batch_coverage_loss_step.shape, batch_coverage_loss_step)
                 #print('batch_coverage_loss', batch_coverage_loss.shape)
-                batch_coverage_loss += batch_coverage_loss_step
+
                 #print(batch_coverage_loss)
 
 
@@ -272,14 +301,19 @@ class Seq2Seq_pointer_generator(nn.Module):
                     decoder_input = decoder_input.squeeze()
                 #print(t)
             #print('divinding by', self.max_output_length)
-            batch_coverage_loss = batch_coverage_loss/self.max_output_length
-            #print(batch_coverage_loss)
-            batch_coverage_loss = torch.sum(batch_coverage_loss) / self.batch_size
+
             #print('after divide', batch_coverage_loss)
 
             decoder_output_probabilities = torch.transpose(decoder_output_probabilities, 0,1)
             decoder_output_probabilities = torch.transpose(decoder_output_probabilities, 1, 2)
-            return decoder_output_probabilities, batch_coverage_loss
+            if self.coverage_enabled:
+                batch_coverage_loss = batch_coverage_loss/self.max_output_length
+                #print(batch_coverage_loss)
+                batch_coverage_loss = torch.sum(batch_coverage_loss) / self.batch_size
+
+                return decoder_output_probabilities, batch_coverage_loss
+            else:
+                return decoder_output_probabilities
 
         elif decode_style == 'greedy':
             #greedy_decode(self, decoder_hidden, encoder_hidden_states, projected_encoder_hidden_states, src_mask)
@@ -315,7 +349,8 @@ class Seq2Seq_pointer_generator(nn.Module):
             input_seq_extended_with_oov_for_idx = input_seq_extended_with_oov[i, :].unsqueeze(0)
 
             num_oov = extended_vocab_sizes[i]
-            coverage_vector_for_idx = torch.zeros(self.max_input_length_batch, 1).to(self.device)
+            if self.coverage_enabled:
+                coverage_vector_for_idx = torch.zeros(self.max_input_length_batch, 1).to(self.device)
             #print(coverage_vector_for_idx.shape)
             #print('decoder hidden idx', decoder_hidden_for_idx.shape)
             #print('encoder_hidden_states idx', encoder_hidden_states_for_idx.shape)
@@ -324,9 +359,11 @@ class Seq2Seq_pointer_generator(nn.Module):
             for t in range(1, self.max_output_length):
                 # print(decoder_input.shape)
                 #print('decoder_input before unsqueeze', decoder_input.shape, decoder_input)
-                if decoder_input.item() > self.vocab_size: ###if oov
+                if decoder_input.item() >= self.vocab_size: ###if oov
+                   # print('oov')
                     decoder_input = torch.tensor([self.unk_idx], dtype=torch.long, device=torch.device(self.device))
                 decoder_input = decoder_input.unsqueeze(1)
+                #print(decoder_input)
                 #print('decoder_input', decoder_input.shape, decoder_input)
 
                 # input_token, encoder_hidden_states, projected_encoder_hidden_states, src_mask, prev_hidden, encoder_batch_extended_vocab
@@ -334,9 +371,14 @@ class Seq2Seq_pointer_generator(nn.Module):
                 # print('actu', decoder_input.shape)
                 #self.decoder(decoder_input, encoder_hidden_states, projected_encoder_hidden_states, src_mask, decoder_hidden, input_seq_extended_with_oov, batch_max_oov, coverage_vectors)
 
-                output, decoder_hidden_for_idx, coverage_vector_for_idx, _ = self.decoder(decoder_input, encoder_hidden_states_for_idx,
+                if self.coverage_enabled:
+                    output, decoder_hidden_for_idx, coverage_vector_for_idx, _ = self.decoder(decoder_input, encoder_hidden_states_for_idx,
                                                               projected_encoder_hidden_states_for_idx, src_mask[i],
                                                               decoder_hidden_for_idx, input_seq_extended_with_oov_for_idx, num_oov, coverage_vector_for_idx)
+                else:
+                    output, decoder_hidden_for_idx = self.decoder(decoder_input, encoder_hidden_states_for_idx,
+                                                              projected_encoder_hidden_states_for_idx, src_mask[i],
+                                                              decoder_hidden_for_idx, input_seq_extended_with_oov_for_idx, num_oov)
 
                 # decoder_output_probabilities[t] = output
 
@@ -349,6 +391,7 @@ class Seq2Seq_pointer_generator(nn.Module):
                 # decoded_outputs[t] = decoder_input
                 decoded_output.append(decoder_input.item())
                 if decoder_input.item() == self.eos_idx:
+                    #print(len(decoded_output))
                     break
                 #print('decoder_input before transpose shape', decoder_input.shape, decoder_input)
                 #decoder_input = torch.transpose(decoder_input, 0, 1)
@@ -367,11 +410,12 @@ class Seq2Seq_pointer_generator(nn.Module):
         :return: decoded_batch
         '''
 
-        topk = 1  # how many sentence do you want to generate
+        topk = beam_width  # how many sentence do you want to generate
         decoded_batch = []
 
         # decoding goes sentence by sentence
         for idx in range(self.batch_size):
+            #print(idx)
             #print('src mask len', src_masks.shape)
             #print(idx)
             if isinstance(decoder_hiddens, tuple):  # LSTM case
@@ -383,7 +427,8 @@ class Seq2Seq_pointer_generator(nn.Module):
             projected_encoder_hidden_state = projected_encoder_hidden_states[:, idx, :].unsqueeze(1)
             input_seq_extended_with_oov_for_idx = input_seq_extended_with_oov[idx, :].unsqueeze(0)
             num_oov = extended_vocab_sizes[idx]
-            coverage_vector_for_idx = torch.zeros(self.max_input_length_batch, 1).to(self.device)
+            if self.coverage_enabled:
+                coverage_vector_for_idx = torch.zeros(self.max_input_length_batch, 1).to(self.device)
             #print('decoder_hidden', decoder_hidden.shape)
             #print('decoder_hiddens', decoder_hiddens.shape)
 
@@ -404,7 +449,10 @@ class Seq2Seq_pointer_generator(nn.Module):
             number_required = min((topk + 1), topk - len(endnodes))
 
             # starting node -  hidden vector, previous node, word id, logp, length
-            node = BeamSearchNode(decoder_hidden, None, decoder_input, 0, 1, coverage_vector=coverage_vector_for_idx)
+            if self.coverage_enabled:
+                node = BeamSearchNode(decoder_hidden, None, decoder_input, 0, 1, coverage_vector=coverage_vector_for_idx)
+            else:
+                node = BeamSearchNode(decoder_hidden, None, decoder_input, 0, 1)
             nodes = PriorityQueue()
 
             # start the queue
@@ -414,10 +462,14 @@ class Seq2Seq_pointer_generator(nn.Module):
             # start beam search
             while True:
                 # give up when decoding takes too long
-                if qsize > 2000: break
+                #if qsize > 20000: break
 
                 # fetch the best node
-                score, n = nodes.get()
+                try:
+                    score, n = nodes.get()
+                except Exception as e:
+                    #print([(node.wordid, node.eval()) for node in nodes])
+                    print(e)
                 decoder_input = n.wordid
                 #print(decoder_input.shape)
                 decoder_hidden = n.h
@@ -426,23 +478,28 @@ class Seq2Seq_pointer_generator(nn.Module):
                 if (n.wordid.item() == EOS_token or n.leng == max_len) and n.prevNode != None:
                     endnodes.append((score, n))
                     # if we reached maximum # of sentences required
+                    #print(n.leng)
+
                     if len(endnodes) >= number_required:
                         break
                     else:
                         continue
 
                 # decode for one step using decoder
-                if decoder_input.squeeze().item() > self.vocab_size:####decoder gnerated a oov word
+                if decoder_input.squeeze().item() >= self.vocab_size:####decoder gnerated a oov word
                     decoder_input = torch.tensor([[self.unk_idx]], dtype=torch.long, device=torch.device(device))
-                decoder_output, decoder_hidden, coverage_vector_for_idx, _ = self.decoder(decoder_input, encoder_hidden_state,
-                                                         projected_encoder_hidden_state, src_mask, decoder_hidden, input_seq_extended_with_oov_for_idx, num_oov, coverage_vector_for_idx)
+                if self.coverage_enabled:
+                    decoder_output, decoder_hidden, coverage_vector_for_idx, _ = self.decoder(decoder_input, encoder_hidden_state, projected_encoder_hidden_state, src_mask, decoder_hidden, input_seq_extended_with_oov_for_idx, num_oov, coverage_vector_for_idx)
+                else:
+                    decoder_output, decoder_hidden = self.decoder(decoder_input, encoder_hidden_state, projected_encoder_hidden_state, src_mask, decoder_hidden, input_seq_extended_with_oov_for_idx, num_oov)
+
 
                 # PUT HERE REAL BEAM SEARCH OF TOP
                 #print('decoderoutput',decoder_output.shape)
                 decoder_output = decoder_output.squeeze()
                 decoder_output = decoder_output.squeeze()
                 log_prob, indexes = torch.topk(decoder_output, beam_width)
-                #print('indexes', indexes.shape)
+                #print('indexes', indexes.shape, indexes)
                 #print('log_prob', log_prob.shape)
 
                 nextnodes = []
@@ -453,11 +510,13 @@ class Seq2Seq_pointer_generator(nn.Module):
                     #print(log_prob)
 
                     log_p = log_prob[new_k].item()
-
-                    node = BeamSearchNode(decoder_hidden, n, decoded_t, n.logp + log_p, n.leng + 1, coverage_vector_for_idx)
+                    if self.coverage_enabled:
+                        node = BeamSearchNode(decoder_hidden, n, decoded_t, n.logp + log_p, n.leng + 1, coverage_vector_for_idx)
+                    else:
+                        node = BeamSearchNode(decoder_hidden, n, decoded_t, n.logp + log_p, n.leng + 1)
                     score = -node.eval()
                     nextnodes.append((score, node))
-
+                #print(len(nextnodes))
                 # put them into queue
                 for i in range(len(nextnodes)):
                     score, nn = nextnodes[i]
@@ -475,6 +534,7 @@ class Seq2Seq_pointer_generator(nn.Module):
                 endnodes = [nodes.get() for _ in range(topk)]
 
             utterances = []
+            #print("=========================================")
             for score, n in sorted(endnodes, key=operator.itemgetter(0)):
                 utterance = []
                 utterance.append(n.wordid.squeeze(dim=1).item())
@@ -483,7 +543,9 @@ class Seq2Seq_pointer_generator(nn.Module):
                     n = n.prevNode
                     utterance.append(n.wordid.squeeze(dim=1).item())
 
+
                 utterance = utterance[::-1]
+                #print(score, utterance)
                 utterances.append(utterance)
             #print(idx,utterances)
             decoded_batch.append(utterances[0])
@@ -522,6 +584,7 @@ class BahdanauAttention(nn.Module):
         # We first project the query (the decoder state).
         # The projected keys (the encoder states) were already pre-computated.
         #print(query)
+        #print(query.shape)
         query = self.query_layer(query)
         #print('query',query)
         # Calculate scores.
@@ -585,6 +648,7 @@ class BahdanauAttention(nn.Module):
             min_between_attention_coverage = torch.min(alphas, coverage)
 
             coverage = coverage + alphas
+            #print(coverage)
 
             #print('attention', alphas)
             #print('coverage', coverage)
@@ -962,10 +1026,22 @@ class BeamSearchNode(object):
         self.leng = length
         self.coverage_vector = coverage_vector
 
+    def __lt__(self, other):
+        return self.leng < other.leng
+
+    def __eq__(self, other):
+        if (other == None):
+            return False
+        if (not isinstance(other, BeamSearchNode)):
+            return False
+        return self.leng == other.leng
+
     def eval(self, alpha=1.0):
         reward = 0
         # Add here a function for shaping a reward
 
         return self.logp / float(self.leng - 1 + 1e-6) + alpha * reward
+
+       # return self.logp
 
 
