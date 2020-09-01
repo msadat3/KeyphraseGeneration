@@ -87,7 +87,8 @@ def encode_text_all(input_location, output_location_src, output_location_tgt, ou
             json_dict = json.loads(json_line)
             src = json_dict['combined_src_sequence_for_BART']
             tgt = json_dict['combined_target_sequence_for_BART']
-            #print(json_dict)
+           # print(json_dict)
+           # quit()
             presnent_tgt = json_dict['combined_present_target_sequence_for_BART']
             absent_tgt = json_dict['combined_absent_target_sequence_for_BART']
 
@@ -109,8 +110,8 @@ def encode_text_all(input_location, output_location_src, output_location_tgt, ou
              #   print(json_dict)
             encoded_src_list.append(encoded_src)
             encoded_tgt_list.append(encoded_tgt)
-            #encoded_present_tgt_list.append(encoded_present_tgt)
-            #encoded_absent_tgt_list.append(encoded_absent_tgt)
+            encoded_present_tgt_list.append(encoded_present_tgt)
+            encoded_absent_tgt_list.append(encoded_absent_tgt)
 
     save_data(encoded_src_list, output_location_src)
     save_data(encoded_tgt_list, output_location_tgt)
@@ -119,9 +120,29 @@ def encode_text_all(input_location, output_location_src, output_location_tgt, ou
 
     return src_max_length, tgt_max_length, present_tgt_max_length, absent_tgt_max_length
 
+def pad_text(encoded_loc, output_location, max_len):
+    encoded_list = load_data(encoded_loc)
+
+    padded_list = []
+    for text in encoded_list:
+        if len(text) > max_len:
+            text = text[0:max_len]
+        else:
+            while len(text) < max_len:
+                text.append(word_to_idx[pad_token])
+        padded_list.append(text)
+    save_data(padded_list, output_location)
+    del padded_list
+    del encoded_list
+
 def pad_text_all(src_encoded_location, tgt_encoded_location, present_tgt_encoded_location, absent_tgt_encoded_location, src_output_location, tgt_output_location, present_tgt_output_location, absent_tgt_output_location, src_max_length, tgt_max_length, present_tgt_max_length, absent_tgt_max_length):
 
-    src_padded_list = []
+    pad_text(src_encoded_location,src_output_location,src_max_length)
+    pad_text(tgt_encoded_location, tgt_output_location, tgt_max_length)
+    pad_text(present_tgt_encoded_location, present_tgt_output_location, present_tgt_max_length)
+    pad_text(absent_tgt_encoded_location, absent_tgt_output_location, absent_tgt_max_length)
+
+    '''src_padded_list = []
     tgt_padded_list = []
     present_tgt_padded_list = []
     absent_tgt_padded_list = []
@@ -166,7 +187,7 @@ def pad_text_all(src_encoded_location, tgt_encoded_location, present_tgt_encoded
     save_data(src_padded_list, src_output_location)
     save_data(tgt_padded_list, tgt_output_location)
     save_data(present_tgt_padded_list, present_tgt_output_location)
-    save_data(absent_tgt_padded_list, absent_tgt_output_location)
+    save_data(absent_tgt_padded_list, absent_tgt_output_location)'''
 
 def create_attention_masks(src_padded_location, tgt_padded_location,present_tgt_padded_location, absent_tgt_padded_location, src_attention_mask_location, tgt_attention_mask_location, present_tgt_attention_mask_location, absent_tgt_attention_mask_location):
     src_padded_list = load_data(src_padded_location)
