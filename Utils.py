@@ -2,6 +2,7 @@
 from nltk.stem.porter import *
 import numpy as np
 import pickle
+import hickle
 
 stemmer = PorterStemmer()
 DIGIT_token = "<digit>"
@@ -138,3 +139,28 @@ def load_data(location):
 def save_data(data, location):
     with open(location, 'wb') as file:
         pickle.dump(data,file)
+
+def load_data_hkl(location):
+    with open(location, 'rb') as file:
+        data = hickle.load(file)
+        return data
+
+def save_data_hkl(data, location):
+    with open(location, 'wb') as file:
+        hickle.dump(data,file)
+
+'''data_hkl = []
+
+for d in data:
+    data_hkl_inside = []
+    for d_inside in d:
+        data_hkl_inside.append(d_inside)
+    data_hkl.append(data_hkl_inside)
+
+with open("file.txt", "w") as f:
+    for s in score:
+        f.write(str(s) +"\n")
+
+with open("file.txt", "r") as f:
+  for line in f:
+    score.append(int(line.strip()))'''
