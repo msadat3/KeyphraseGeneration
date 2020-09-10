@@ -27,38 +27,6 @@ generated_base = "/home/ubuntu/Keyphrase_Generation/Generated_outputs_BART/"
 test_gold_base = '/home/ubuntu/Keyphrase_Generation/data/json'
 print('lalalal')
 
-X_train = load_data(os.path.join(base, "kp20k", "kp20k_train_src_encoded_padded.pkl"))
-# X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
-X_valid = load_data(os.path.join(base, "kp20k", "kp20k_valid_src_encoded_padded.pkl"))
-
-X_train_att_mask = load_data(os.path.join(base, "kp20k", "kp20k_train_src_attention_masks.pkl"))
-# X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
-X_valid_att_mask = load_data(os.path.join(base, "kp20k", "kp20k_valid_src_attention_masks.pkl"))
-
-'''y_train_present = load_data(os.path.join(base,"kp20k","kp20k_train_present_tgt_encoded_padded.pkl"))
-#X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
-y_valid_present = load_data(os.path.join(base,"kp20k","kp20k_valid_present_tgt_encoded_padded.pkl"))
-
-y_train_absent = load_data(os.path.join(base,"kp20k","kp20k_train_absent_tgt_encoded_padded.pkl"))
-#X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
-y_valid_absent = load_data(os.path.join(base,"kp20k","kp20k_valid_absent_tgt_encoded_padded.pkl"))
-
-y_train_present_att_mask = load_data(os.path.join(base,"kp20k","kp20k_train_present_tgt_attention_masks.pkl"))
-#X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
-y_valid_present_att_mask = load_data(os.path.join(base,"kp20k","kp20k_valid_present_tgt_attention_masks.pkl"))
-
-y_train_absent_att_mask = load_data(os.path.join(base,"kp20k","kp20k_train_absent_tgt_attention_masks.pkl"))
-#X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
-y_valid_absent_att_mask = load_data(os.path.join(base,"kp20k","kp20k_valid_absent_tgt_attention_masks.pkl"))'''
-
-#####single encoder
-y_train = load_data(os.path.join(base, "kp20k", "kp20k_train_tgt_encoded_padded.pkl"))
-# X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
-y_valid = load_data(os.path.join(base, "kp20k", "kp20k_valid_tgt_encoded_padded.pkl"))
-
-y_train_att_mask = load_data(os.path.join(base, "kp20k", "kp20k_train_tgt_attention_masks.pkl"))
-# X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl"
-y_valid_att_mask = load_data(os.path.join(base, "kp20k", "kp20k_valid_tgt_attention_masks.pkl"))
 
 print('lalalal')
 
@@ -691,11 +659,50 @@ def train_model_augmented(X_location, X_att_mask_loc, y_location, y_att_mask_loc
 
 
 
-train_data_loader = create_data_loaders_BART(X_train, X_train_att_mask, y_train, y_train_att_mask, batch_size, device,
-                                             data_type='train')
+X_train = load_data(os.path.join(base, "kp20k", "kp20k_train_src_encoded_padded.pkl"))
+# X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
+print(len(X_train))
+X_valid = load_data(os.path.join(base, "kp20k", "kp20k_valid_src_encoded_padded.pkl"))
+
+#X_train_att_mask = load_data(os.path.join(base, "kp20k", "kp20k_train_src_attention_masks.pkl"))
+# X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
+X_valid_att_mask = load_data(os.path.join(base, "kp20k", "kp20k_valid_src_attention_masks.pkl"))
+
+'''y_train_present = load_data(os.path.join(base,"kp20k","kp20k_train_present_tgt_encoded_padded.pkl"))
+#X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
+y_valid_present = load_data(os.path.join(base,"kp20k","kp20k_valid_present_tgt_encoded_padded.pkl"))
+
+y_train_absent = load_data(os.path.join(base,"kp20k","kp20k_train_absent_tgt_encoded_padded.pkl"))
+#X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
+y_valid_absent = load_data(os.path.join(base,"kp20k","kp20k_valid_absent_tgt_encoded_padded.pkl"))
+
+y_train_present_att_mask = load_data(os.path.join(base,"kp20k","kp20k_train_present_tgt_attention_masks.pkl"))
+#X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
+y_valid_present_att_mask = load_data(os.path.join(base,"kp20k","kp20k_valid_present_tgt_attention_masks.pkl"))
+
+y_train_absent_att_mask = load_data(os.path.join(base,"kp20k","kp20k_train_absent_tgt_attention_masks.pkl"))
+#X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl")
+y_valid_absent_att_mask = load_data(os.path.join(base,"kp20k","kp20k_valid_absent_tgt_attention_masks.pkl"))'''
+
+#####single encoder
+#y_train = load_data(os.path.join(base, "kp20k", "kp20k_train_tgt_encoded_padded.pkl"))
+# X_test = load_data(base+"kp20k\\kp20k_test_src_numeric.pkl")
+y_valid = load_data(os.path.join(base, "kp20k", "kp20k_valid_tgt_encoded_padded.pkl"))
+
+#y_train_att_mask = load_data(os.path.join(base, "kp20k", "kp20k_train_tgt_attention_masks.pkl"))
+# X_test_lengths = load_data(base+"kp20k\\kp20k_test_src_length.pkl"
+y_valid_att_mask = load_data(os.path.join(base, "kp20k", "kp20k_valid_tgt_attention_masks.pkl"))
+
+
+X_train_location = os.path.join(base, "kp20k", "kp20k_train_src_encoded_padded.json")
+X_train_att_location = os.path.join(base, "kp20k", "kp20k_train_src_attention_masks.json")
+y_train_location = os.path.join(base, "kp20k", "kp20k_train_tgt_encoded_padded.json")
+y_train_att_location = os.path.join(base, "kp20k", "kp20k_train_tgt_attention_masks.pkl")
+#train_data_loader = create_data_loaders_BART(X_train, X_train_att_mask, y_train, y_train_att_mask, batch_size, device,
+                                            # data_type='train')
 validation_data_loader = create_data_loaders_BART(X_valid, X_valid_att_mask, y_valid, y_valid_att_mask, batch_size,
                                                   device, data_type='eval')
-train_model(train_data_loader, validation_data_loader, model_location)
+train_model_augmented(validation_data_loader, model_location)
 
 
 # train_data_loader = create_data_loaders_BART_dual_decoder(X_train, X_train_att_mask, y_train_present, y_train_present_att_mask,y_train_absent, y_train_absent_att_mask, batch_size, device, data_type = 'train')
